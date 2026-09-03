@@ -1,0 +1,20 @@
+# ── Core (Python 3.11+ compatible, including 3.14) ──────────
+opencv-python-headless>=4.10.0
+numpy>=2.0.0
+Pillow>=10.4.0
+
+# ── Search ───────────────────────────────────────────────────
+google-search-results>=2.4.2   # SerpAPI Python wrapper
+requests>=2.32.0
+
+# ── Blockchain ───────────────────────────────────────────────
+web3>=6.20.0
+
+# ── Utilities ────────────────────────────────────────────────
+python-dotenv>=1.0.1
+rich>=13.7.0                   # coloured terminal output
+truststore>=0.9.0              # system trust store integration for robust TLS/SSL
+
+# ── Testing ──────────────────────────────────────────────────
+pytest>=8.3.0
+pytest-mock>=3.14.0

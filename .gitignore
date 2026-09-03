@@ -1,0 +1,51 @@
+# Secrets — never commit these
+.env
+*.key
+*.pem
+secrets/
+
+# Python artefacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Data that may contain biometric / personal information
+data/input/*
+data/results/*
+!data/input/.gitkeep
+!data/results/.gitkeep
+
+# Downloaded ONNX models (large binaries, fetched on first run)
+data/models/*
+!data/models/.gitkeep
+*.onnx
+*.h5
+*.pt
+*.pth
+
+# OS
+.DS_Store
+Thumbs.db
