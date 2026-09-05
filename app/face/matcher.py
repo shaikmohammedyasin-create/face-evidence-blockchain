@@ -33,6 +33,7 @@ from app.face.identity_decision import (
 )
 from app.face.quality import FaceQualityAssessment, assess_face_quality
 from app.models.schemas import FaceResult, MatchResult, SearchCandidate
+from app.utils.file_utils import compute_dhash, hamming_distance
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -154,6 +155,8 @@ def match_candidate(
             decision_reason="No human face detected in candidate image",
         )
 
+    cand_dhash = compute_dhash(candidate_image_path)
+
     best_similarity = -1.0
     best_face_idx = 0
     best_quality: Optional[FaceQualityAssessment] = None
@@ -194,6 +197,8 @@ def match_candidate(
             f"Multi-face image: Evaluated {len(cand_faces)} faces; highest similarity on Face #{best_face_idx + 1}"
         )
 
+    rel_type = "NEAR_DUPLICATE_PHOTO" if (matched and cand_dhash) else ("HIGH_SIMILARITY_FACE" if matched else "NO_RELATION")
+
     return MatchResult(
         candidate=candidate,
         matched=matched,
@@ -210,6 +215,8 @@ def match_candidate(
         decision_tier="HIGH_MATCH" if similarity >= HIGH_CONFIDENCE_THRESHOLD else ("REVIEW" if matched else "NO_MATCH"),
         decision_reason="",
         margin_from_runner_up=0.0,
+        image_dhash=cand_dhash,
+        image_relationship=rel_type,
         warnings=warnings,
         all_face_scores=all_scores,
     )
@@ -218,10 +225,16 @@ def match_candidate(
 def is_near_duplicate(r1: MatchResult, r2: MatchResult, threshold: float = 0.90) -> bool:
     """
     Return True if candidates r1 and r2 represent near-duplicate face images / same identity cluster.
+    Compares perceptual image dhash hamming distance and embedding cosine similarity.
     """
+    if r1.image_dhash and r2.image_dhash:
+        dist = hamming_distance(r1.image_dhash, r2.image_dhash)
+        if dist <= 10:
+            return True
     if r1.candidate_embedding and r2.candidate_embedding:
         return cosine_similarity(r1.candidate_embedding, r2.candidate_embedding) >= threshold
     return abs(r1.confidence - r2.confidence) < 0.005
+
 
 
 def rank_candidates(results: list[MatchResult]) -> list[MatchResult]:

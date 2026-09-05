@@ -150,3 +150,40 @@ def download_image(url: str, dest: Path) -> Path:
     fname.write_bytes(resp.content)
     log.debug("Downloaded %s → %s", url, fname)
     return fname
+
+
+def compute_dhash(image_path: Path | str, hash_size: int = 8) -> str:
+    """
+    Compute a 64-bit difference hash (dhash) for perceptual image comparison.
+
+    Returns a 16-character hex string, or empty string on failure.
+    """
+    import cv2
+
+    p = Path(image_path)
+    if not p.is_file():
+        return ""
+    img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return ""
+    try:
+        resized = cv2.resize(img, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
+        diff = resized[:, 1:] > resized[:, :-1]
+        bits = [2 ** i for (i, v) in enumerate(diff.flatten()) if v]
+        val = sum(bits)
+        return f"{val:016x}"
+    except Exception as exc:
+        log.debug("Could not compute dhash for %s: %s", image_path, exc)
+        return ""
+
+
+def hamming_distance(h1: str, h2: str) -> int:
+    """Return bit Hamming distance between two 16-character hex dhash strings."""
+    if not h1 or not h2 or len(h1) != len(h2):
+        return 64
+    try:
+        val = int(h1, 16) ^ int(h2, 16)
+        return bin(val).count("1")
+    except Exception:
+        return 64
+

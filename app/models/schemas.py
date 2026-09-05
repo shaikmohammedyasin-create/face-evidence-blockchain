@@ -81,6 +81,8 @@ class MatchResult:
     decision_tier: str = "NO_MATCH"
     decision_reason: str = ""
     margin_from_runner_up: float = 0.0
+    image_dhash: str = ""
+    image_relationship: str = ""
     warnings: list[str] = field(default_factory=list)
     all_face_scores: list[float] = field(default_factory=list)
     identity_decision: Optional[IdentityDecision] = None

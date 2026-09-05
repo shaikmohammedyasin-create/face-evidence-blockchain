@@ -18,6 +18,7 @@ class TestDemoMain:
 
     def test_missing_image_fails(self, monkeypatch):
         monkeypatch.setattr("sys.argv", ["demo"])
+        monkeypatch.setattr("app.demo.find_default_target_image", lambda: None)
         with pytest.raises(SystemExit) as exc:
             demo_main()
         assert exc.value.code != 0
@@ -26,6 +27,18 @@ class TestDemoMain:
         non_existent = str(tmp_path / "missing.jpg")
         ret = run_demo(image_path=non_existent, json_output=True)
         assert ret == 1
+
+    def test_self_test_flag(self):
+        ret = run_demo(self_test=True)
+        assert ret == 0
+
+    def test_search_debug_flag(self, tmp_path):
+        test_file = tmp_path / "sample.jpg"
+        test_file.write_bytes(b"dummy image data")
+        with patch("app.search.reverse_search.search_for_image") as mock_search:
+            mock_search.return_value = []
+            ret = run_demo(image_path=str(test_file), search_debug=True)
+            assert ret == 0
 
     def test_judge_mode_execution(self, tmp_path):
         test_file = tmp_path / "sample.jpg"
@@ -52,3 +65,4 @@ class TestDemoMain:
             )
             assert ret == 0
             assert mock_pipeline.called
+
