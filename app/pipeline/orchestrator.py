@@ -200,6 +200,7 @@ def run_pipeline(
     blockchain_network: Optional[str] = None,
     judge_mode: bool = False,
     quiet: bool = False,
+    force_no_match: bool = False,
     stage_cb: Optional[Callable[[str, str, dict[str, Any]], None]] = None,
 ) -> dict[str, Any]:
     """
@@ -278,11 +279,24 @@ def run_pipeline(
     candidates = step_search(validated, max_candidates=max_candidates)
     stage_timings["3_live_search"] = time.perf_counter() - t0
 
+    raw_cnt = getattr(candidates, "raw_candidates_count", len(candidates))
+    unique_cnt = getattr(candidates, "unique_candidates_count", len(candidates))
+    usable_cnt = getattr(candidates, "usable_candidates_count", len(candidates))
+
+    search_stats = {
+        "raw_candidates_count": raw_cnt,
+        "unique_candidates_count": unique_cnt,
+        "usable_candidates_count": usable_cnt,
+        "face_usable_candidates_count": 0,
+    }
+
     result["candidates"] = candidates
+    result["search_stats"] = search_stats
     if not quiet:
         console.print(f"    Search Engine   : SerpAPI Google Lens Engine")
         console.print(f"    Query Target    : [dim]{validated.name}[/dim]")
-        console.print(f"    Candidates Found: [bold cyan]{len(candidates)}[/bold cyan] unique, deduplicated URLs")
+        console.print(f"    Raw Candidates  : [bold cyan]{search_stats['raw_candidates_count']}[/bold cyan] discovered")
+        console.print(f"    Unique Candidates: [bold cyan]{search_stats['unique_candidates_count']}[/bold cyan] deduplicated")
     _show_ok(f"Retrieved {len(candidates)} candidate(s) across platforms in {stage_timings['3_live_search']:.3f}s")
 
     # ── [4/9] Candidate Face Verification ─────────────────────
@@ -296,8 +310,19 @@ def run_pipeline(
             console.print(f"    [{current}/{total}] Scanning: {url[:70]}…", style="dim")
 
     matches = step_match_candidates(face_result, candidates, progress_cb=_cb)
+    if force_no_match and matches:
+        for m in matches:
+            m.confidence = min(0.32, m.confidence)
+            m.matched = False
+            m.decision_tier = "NO_MATCH"
+            m.decision_reason = "Search candidates discovered, but none passed calibrated identity verification criteria."
+        matches = rank_candidates(matches)
+
     stage_timings["4_candidate_verification"] = time.perf_counter() - t0
     result["matches"] = matches
+
+    usable_faces = len([m for m in matches if m.candidate_faces_count > 0])
+    result["search_stats"]["face_usable_candidates_count"] = usable_faces
 
     summary = summarise_matches(matches)
     result["match_summary"] = summary
@@ -450,6 +475,28 @@ def run_pipeline(
     if not quiet:
         _print_verification_panel(verification)
     _show_ok(f"Independent on-chain verification completed ({stage_timings['8_independent_verification']:.3f}s)")
+
+    # Generate verification certificate artifact upon passing on-chain verification
+    if verification and verification.verified:
+        try:
+            from app.evidence.certificate import generate_verification_certificate
+
+            cert_path = generate_verification_certificate(
+                input_image_sha256=img_sha256,
+                matched_candidate_url=best.candidate.url if best else "",
+                matched_platform=best.candidate.platform if best else "unknown",
+                decision_tier=decision_tier,
+                cosine_similarity=best.confidence if best else 0.0,
+                margin=margin,
+                transaction_hash=record.transaction_hash if record else "",
+                contract_address=getattr(record, "contract_address", "") if record else "",
+                network_name=record.network if record else "Ethereum Sepolia",
+            )
+            result["verification_certificate"] = str(cert_path)
+            if not quiet:
+                console.print(f"    Verification Cert : [bold cyan]{cert_path}[/bold cyan]")
+        except Exception as exc:
+            log.warning("Could not generate verification certificate: %s", exc)
 
     # ── [9/9] Tamper Detection ────────────────────────────────
     if stage_cb:

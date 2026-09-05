@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biometric & Blockchain Verification Certificate</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .certificate-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            max-width: 750px;
+            width: 100%;
+            padding: 32px;
+            box-sizing: border-box;
+        }
+        .header {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .badge {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 200px;
+            gap: 24px;
+        }
+        .field-group {
+            margin-bottom: 16px;
+        }
+        .field-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        .field-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+        .field-value.mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: var(--accent-cyan);
+        }
+        .field-value.highlight {
+            color: #10B981;
+            font-weight: 700;
+        }
+        .qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .qr-container img {
+            width: 140px;
+            height: 140px;
+        }
+        .qr-caption {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 6px;
+            font-weight: 600;
+        }
+        .footer {
+            margin-top: 24px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="certificate-card">
+        <div class="header">
+            <div>
+                <h1>Biometric & Blockchain Verification Certificate</h1>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">HH Goa 2026 — Task 3 Verification Artifact</div>
+            </div>
+            <div class="badge">ON-CHAIN VERIFIED</div>
+        </div>
+
+        <div class="grid">
+            <div class="details">
+                <div class="field-group">
+                    <div class="field-label">Input Image SHA-256 Checksum</div>
+                    <div class="field-value mono">1dd21196c0d68d74ed64a752d5bfbb183d2ba7bc43995e78e92de96c6a5fdf3e</div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">Matched Candidate Web URL</div>
+                    <div class="field-value"><a href="https://instagram.com/p/mock123" target="_blank">https://instagram.com/p/mock123</a></div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">Platform & Decision Tier</div>
+                    <div class="field-value">
+                        <span>Instagram</span> &bull; <span class="highlight">HIGH CONFIDENCE MATCH (HIGH_MATCH)</span>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">Cosine Similarity & Statistical Runner-Up Margin</div>
+                    <div class="field-value">
+                        Similarity: <strong>89.0%</strong> (0.8900) &bull;
+                        Margin (Δ): <strong>+89.0%</strong> (+0.8900)
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">Blockchain Network</div>
+                    <div class="field-value">[SIMULATION] Local In-Memory Chain (Sepolia Stand-in)</div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">On-Chain Transaction Hash</div>
+                    <div class="field-value mono"><a href="https://sepolia.etherscan.io/tx/0x5a7acce3abdc1b82c24f502791c4979d5fc8841854269661a209b1799ae0e159" target="_blank">0x5a7acce3abdc1b82c24f502791c4979d5fc8841854269661a209b1799ae0e159</a></div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field-label">Contract Address</div>
+                    <div class="field-value mono">0x71C7656EC7ab88b098defB751B7401B5f6d8976F</div>
+                </div>
+            </div>
+
+            <div class="qr-container">
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPYAAAD2AQAAAADNaUdlAAACSUlEQVR4nO1ZQW7kMAyj4wA9Oj/y/Gy+5nlKH7CAcyzggAtKnu4tHaAoNgKqQyaTXCSZpGgnEWdxLKevgd/33+sP2HXNZO6VvQIYhZm+LHVcvb9gr7TkM9uwQtjrQJ03y3/Ob3nhfUo3lDb2Owo/Ukobcgf2tF4kv7NY5+++5T+P/J6ygPNYR1uvkd+r70sbhWtp6n+6XS+/L/GPgSrmGoudwoyB/0dKCahvHW/v6vwK3RxGhCvkdx6c0VAI9V8rMsp8OmLofzXZN/1U8o3d/pYY+dOynSOgNKB6FQiRP4UZ5WwQylQhEH6aqgjSf5rs5KcQCVFh8CPwO3PdP9hyKHKQ/o/CgSrAkMP8m0sQQvSfzcVT8wsTRcNWBCH8J5un7Q3PbCqhy1EwBH5I10wjrG58RXIPgn/KcZrzmcPLtTQM/rugYoIvCqgKzhGGAPhfPkfAut/knzcc6Z47PjYr7Qr5fcnfYrD3jbAGmZYgSP/hsDH9l2dw26MVMQoEyL87ha3bn/5ZcsQY/e92TjIlSMqjcoquDKCfi8QTWAuxp2N7HOmOPWXROcXYf/V51CPm+ix7+p8RA//VDbPO3HzbaI5uOqIlgn8u2jnOJTD/7yxmAPzDoGLO+bn/lf7PHRkD5O9h08qrcOS4ro4Y+gkBxgaZ0Xla6BEE/6TZfjVfyu/OwZ+PGPvf6pPLzKf0xyMH4S9McNwCuXNwIudQ/afZBieCbWQYxP9UP8JSww1F7uWCnD/jn+3370d2oxMJxfXzT7/fT0/jp/v/F0ZsOMV1k6DVAAAAAElFTkSuQmCC" alt="Etherscan QR Code">
+                <div class="qr-caption">Scan to Verify on Etherscan</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>Timestamp: 2026-09-05T20:21:30.220279</div>
+            <div>Biometric Privacy: Zero Raw Vectors Stored On-Chain</div>
+        </div>
+    </div>
+</body>
+</html>

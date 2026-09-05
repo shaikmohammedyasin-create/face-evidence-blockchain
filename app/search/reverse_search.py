@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.config import BING_SEARCH_API_KEY, SERPAPI_KEY
-from app.models.schemas import SearchCandidate
+from app.models.schemas import SearchCandidate, SearchCandidateList
 from app.search.web_search import (
     BingVisualSearchProvider,
     SerpApiLensProvider,
@@ -161,7 +161,12 @@ def search_for_image(
     without_image = [c for c in deduped if not c.image_url]
     ordered = with_image + without_image
 
-    trimmed = ordered[:MAX_CANDIDATES]
+    trimmed = SearchCandidateList(
+        ordered[:MAX_CANDIDATES],
+        raw_candidates_count=len(all_candidates),
+        unique_candidates_count=len(deduped),
+        usable_candidates_count=min(len(ordered), MAX_CANDIDATES),
+    )
     log.info(
         "Multi-provider search complete: aggregated %d candidate(s) → %d unique (%d with direct thumbnails)",
         len(all_candidates), len(trimmed), len(with_image),

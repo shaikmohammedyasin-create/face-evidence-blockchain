@@ -61,3 +61,35 @@ def summarise_matches(results: list[MatchResult]) -> dict:
         "top_match_url": matched[0].candidate.url if matched else None,
         "top_match_platform": matched[0].candidate.platform if matched else None,
     }
+
+
+def is_search_result_url(url: str) -> bool:
+    """
+    Return True if *url* points to a directory, aggregator, or search-results page
+    rather than a direct user profile or social media post.
+    """
+    if not url:
+        return False
+    u = url.lower()
+    search_patterns = [
+        "/pub/dir/",
+        "/dir/+",
+        "/dir/",
+        "/search",
+        "/results",
+        "/search-results",
+        "search_query",
+        "find?",
+        "people/dir",
+    ]
+    return any(pattern in u for pattern in search_patterns)
+
+
+def classify_url_source(url: str) -> str:
+    """
+    Return URL classification label for display in CLI and decision engine.
+    """
+    if is_search_result_url(url):
+        return "SEARCH RESULT PAGE — NOT A DIRECT PROFILE"
+    return "DIRECT POST / PROFILE"
+

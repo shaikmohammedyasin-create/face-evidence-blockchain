@@ -37,6 +37,21 @@ class SearchCandidate:
     raw_metadata: dict = field(default_factory=dict, repr=False)
 
 
+class SearchCandidateList(list):
+    """Subclass of list carrying authoritative search statistics."""
+    def __init__(
+        self,
+        iterable=(),
+        raw_candidates_count: int = 0,
+        unique_candidates_count: int = 0,
+        usable_candidates_count: int = 0,
+    ):
+        super().__init__(iterable)
+        self.raw_candidates_count = raw_candidates_count or len(self)
+        self.unique_candidates_count = unique_candidates_count or len(self)
+        self.usable_candidates_count = usable_candidates_count or len(self)
+
+
 @dataclass
 class IdentityDecision:
     """
@@ -80,6 +95,7 @@ class MatchResult:
     quality_details: dict[str, Any] = field(default_factory=dict)
     decision_tier: str = "NO_MATCH"
     decision_reason: str = ""
+    runner_up_similarity: float = 0.0
     margin_from_runner_up: float = 0.0
     image_dhash: str = ""
     image_relationship: str = ""

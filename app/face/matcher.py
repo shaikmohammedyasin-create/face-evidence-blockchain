@@ -270,24 +270,20 @@ def rank_candidates(results: list[MatchResult]) -> list[MatchResult]:
     # Clustered pool scores (highest score per distinct candidate cluster)
     clustered_pool_scores = [c[0].confidence for c in clusters]
 
-    # Calculate runner-up margin against candidates NOT in the top candidate's cluster
+    # Calculate runner-up similarity and margin for each candidate
     for rank_idx, match_res in enumerate(sorted_results):
-        my_cluster = candidate_to_cluster.get(id(match_res), [match_res])
         current_domain = urlparse(match_res.candidate.url).netloc.lower()
 
-        # Find highest-scoring candidate belonging to a DIFFERENT cluster
+        # Immediate second-best candidate in ranked results
         runner_up_sim = 0.0
         runner_up_domain = ""
-
-        for other in sorted_results:
-            if other is match_res or other in my_cluster:
-                continue
-            if other.confidence > 0.0:
-                runner_up_sim = other.confidence
-                runner_up_domain = urlparse(other.candidate.url).netloc.lower()
-                break
+        if rank_idx + 1 < len(sorted_results):
+            runner_up_cand = sorted_results[rank_idx + 1]
+            runner_up_sim = runner_up_cand.confidence
+            runner_up_domain = urlparse(runner_up_cand.candidate.url).netloc.lower()
 
         margin = max(0.0, match_res.confidence - runner_up_sim) if runner_up_sim > 0 else match_res.confidence
+        match_res.runner_up_similarity = runner_up_sim
         match_res.margin_from_runner_up = margin
 
         # Re-evaluate identity decision with margin and statistical pool context
