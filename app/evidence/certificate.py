@@ -34,7 +34,10 @@ def generate_qr_code_base64(url: str) -> str:
     img = qr.make_image(fill_color="black", back_color="white")
 
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    try:
+        img.save(buf, format="PNG")
+    except TypeError:
+        img.save(buf)
     raw_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{raw_b64}"
 

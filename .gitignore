@@ -37,6 +37,8 @@ data/input/*
 data/results/*
 !data/input/.gitkeep
 !data/results/.gitkeep
+output/*
+!output/.gitkeep
 
 # Downloaded ONNX models (large binaries, fetched on first run)
 data/models/*
