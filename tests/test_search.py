@@ -234,3 +234,52 @@ class TestResultValidator:
         assert s["total_candidates"] == 2
         assert s["matched"] == 1
         assert abs(s["best_confidence"] - 0.91) < 1e-4
+
+
+# ── SerpApiYandexProvider & URL Validation ────────────────────────────────────
+
+class TestSerpApiYandexProvider:
+    def _provider(self):
+        from app.search.web_search import SerpApiYandexProvider
+        return SerpApiYandexProvider(api_key="test-key")
+
+    def test_returns_yandex_candidates(self, tmp_path, monkeypatch):
+        from urllib.parse import urlparse
+        from PIL import Image
+        img_path = tmp_path / "face.png"
+        Image.new("RGB", (64, 64)).save(img_path)
+
+        monkeypatch.setattr(
+            "app.search.web_search._host_image_temporarily",
+            lambda _p: "https://tmpfiles.org/dl/1/face.png",
+        )
+
+        fake_results = {
+            "image_results": [
+                {
+                    "link": "https://yandex.com/images/search?text=test",
+                    "title": "Yandex Result Title",
+                    "snippet": "Snippet text",
+                    "thumbnail": {"link": "https://example.com/thumb.jpg"},
+                }
+            ]
+        }
+
+        mock_gs = MagicMock()
+        mock_gs.return_value.get_dict.return_value = fake_results
+        import sys
+        fake_mod = MagicMock()
+        fake_mod.GoogleSearch = mock_gs
+        monkeypatch.setitem(sys.modules, "serpapi", fake_mod)
+
+        provider = self._provider()
+        candidates = provider.search(img_path)
+
+        assert len(candidates) == 1
+        cand = candidates[0]
+        # Assert stored URL is non-empty, contains no truncation ellipsis, and is a valid absolute URL
+        assert cand.url != ""
+        assert "…" not in cand.url
+        parsed = urlparse(cand.url)
+        assert parsed.scheme in ("http", "https")
+        assert parsed.netloc != ""

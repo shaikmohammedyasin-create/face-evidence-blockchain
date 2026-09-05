@@ -332,6 +332,12 @@ def run_pipeline(
             )
         console.print(cand_table)
 
+        # Print full untruncated evidence URLs for verification
+        console.print("\n[bold cyan]Untruncated Evidence URLs (Full Destination Web Pages):[/bold cyan]")
+        for idx, m in enumerate(matches[:5], 1):
+            console.print(f"  [{idx}] {m.candidate.url}")
+        console.print()
+
     _show_ok(f"Evaluated {len(matches)} candidate image(s) and multi-face crops in {stage_timings['4_candidate_verification']:.3f}s")
 
     # ── [5/9] Identity Decision ───────────────────────────────

@@ -117,14 +117,28 @@ Blockchain commitment & independent verification
 - Every candidate image retrieved from the web is scanned for all human faces.
 - Each detected face is individually aligned, embedded, and compared against the target face. The system selects the strongest legitimate face and records `matched_face_index` and `candidate_faces_count`.
 
-### 6. Three-Tier Identity Decision Engine
-To prevent false-positive matching, candidates are classified into three calibrated tiers:
+### 6. Three-Tier Identity Decision Engine (Clustered & Statistical Relative Scoring)
+To prevent both false-positive matching and duplicate-hit margin distortion, candidates are evaluated using near-duplicate clustering and relative Z-score statistical separation:
+
+1. **Near-Duplicate Candidate Clustering Pass**:
+   - Candidates with face embeddings within a tight distance (cosine similarity $\ge 0.90$ to one another) are grouped into single identity/photo clusters.
+   - Eliminates margin penalties caused by multiple web sources indexing the exact same target photo (e.g., #1 score 0.9563 and #2 near-duplicate 0.9548).
+
+2. **Non-Cluster Margin Analysis ($\Delta$)**:
+   - Margin is calculated as $\Delta = \text{top\_score} - \text{highest\_score\_NOT\_in\_top\_cluster}$.
+   - Measures true separation against a genuinely distinct candidate identity.
+
+3. **Per-Query Relative Statistical Check ($Z \ge 2.0$)**:
+   - Computes mean ($\mu$) and standard deviation ($\sigma$) across the candidate search pool.
+   - Requires top candidate score to be a statistical outlier ($Z = \frac{s - \mu}{\sigma} \ge 2.0$, adjusted for sample size $N$) above background candidate noise.
+
 - **`HIGH CONFIDENCE MATCH`**:
-  - Cosine Similarity $\ge 0.440$
-  - Separation Margin from runner-up candidate $\Delta \ge 0.035$
+  - Cosine Similarity $\ge 0.440$ (absolute floor)
+  - Non-cluster separation margin $\Delta \ge 0.035$
+  - Per-query statistical outlier check passed ($Z \ge 2.0$)
   - Image quality verified (acceptable sharpness/resolution)
 - **`POSSIBLE MATCH — REVIEW`**:
-  - Cosine Similarity $\in [0.363, 0.440)$, OR margin $\Delta < 0.035$, OR degraded image quality.
+  - Cosine Similarity $\in [0.363, 0.440)$, OR margin $\Delta < 0.035$, OR lack of statistical separation ($Z < 2.0$), OR degraded image quality.
 - **`NO RELIABLE MATCH FOUND`**:
   - Cosine Similarity $< 0.363$ (OpenCV SFace baseline threshold) or 0 faces detected in candidates.
 
@@ -234,6 +248,32 @@ python -m app.demo --image ./data/input/target.png --json
 # 7. Interactive Menu Mode
 python -m app.main
 ```
+
+---
+
+## 🎥 Screen Recording Walkthrough Guide (Single Continuous Take)
+
+For judges scrutinizing the live hackathon demonstration video, follow these exact steps to demonstrate all 3 core pipeline stages (**Face Scan → Live Web Search → Blockchain Commitment & Re-Verification**) in one uninterrupted recording:
+
+### 1. Pre-Flight Preparation (5 seconds)
+- Open a terminal in the project root folder `task3-face-identification-blockchain`.
+- Ensure your `.env` contains a valid `SERPAPI_KEY`.
+- Check that your input face image exists (e.g. `./data/input/target.png`).
+
+### 2. Launch the Unified Pipeline Command (20–30 seconds)
+Run the following single command in your terminal:
+```bash
+python -m app.demo --image ./data/input/target.png --judge-mode
+```
+
+### 3. What to Highlight During the Continuous Take
+1. **[1/9] Face Scan & Detection**: Point out the YuNet facial bounding box $(x,y,w,h)$, confidence score, and quality metrics (resolution, sharpness, brightness).
+2. **[2/9] Embedding & Alignment**: Highlight the SFace 5-point landmark affine normalization and 128-D $L_2$-normalized vector generation.
+3. **[3/9] Live Web Search**: Emphasize the **live SerpAPI Google Lens call** returning real, non-hardcoded candidate post URLs.
+4. **[4/9 & 5/9] Candidate Matching & Decision**: Point out the cosine similarity table, the runner-up separation margin ($\Delta$), and the calibrated `HIGH CONFIDENCE MATCH` decision.
+5. **[6/9 & 7/9] Canonical Hashing & Blockchain Upload**: Show the RFC 8785 canonical SHA-256 fingerprint digest and the returned on-chain Transaction Hash / Contract Address.
+6. **[8/9] Independent Re-Verification**: Highlight the **live read-back query from the blockchain** confirming that `LocalDigest === OnChainDigest` (`PASS (VERIFIED ON-CHAIN)`).
+7. **[9/9] Cryptographic Tamper Detection**: Point out the live single-field metadata mutation showing bit-level avalanche divergence ($\sim 50\%$ bit shift), proving that tampered data fails on-chain verification.
 
 ---
 
@@ -351,6 +391,38 @@ Test coverage includes:
 - `tests/test_calibration.py`: Unit norm invariant check ($\|\mathbf{v}\| = 1.0$) and self-match validation.
 - `tests/test_face.py`: Face detection bounding boxes, landmark formatting, embedding generation.
 - `tests/test_identity_decision.py`: 3-tier classification thresholds, runner-up margin constraints, quality gating.
+
+## 🌐 Genuine Multi-Provider Web & Social Media Discovery
+
+### Multi-Provider Search Orchestration
+The pipeline queries and merges candidates across multiple visual search engines simultaneously:
+1. **SerpAPI Google Lens** (`google_lens` engine): Primary visual match indexing.
+2. **SerpAPI Yandex Images** (`yandex_images` engine): Facial-feature visual similarity search for enhanced non-celebrity recall.
+3. **Microsoft Bing Visual Search** (`bing` engine): Supplementary visual search.
+
+Candidates from all active providers are aggregated, normalized, and deduplicated into a single unified candidate pool prior to biometric face matching and relative statistical scoring.
+
+### Search Provenance
+Every search candidate includes verifiable provenance metadata:
+- Search Provider (`SerpAPI (Google Lens)`, `SerpAPI (Yandex Images)`, `Bing Visual Search`)
+- Candidate Webpage URL (Full untruncated absolute URL)
+- Candidate Image Thumbnail URL
+- Search Rank & Domain / Platform
+- Detected Face Count & Matched Face Index
+- Measured Biometric Cosine Similarity
+
+---
+
+## ⚠️ Known Limitations & Engineering Boundaries
+
+In accordance with rigorous forensic engineering standards, this system documents the following technical boundaries:
+1. **Social Platform Crawl Restrictions (Instagram vs. LinkedIn)**: Instagram aggressively blocks search engine crawlers via authentication walls and `robots.txt`, so un-mirrored Instagram posts rarely appear in search engine indexes regardless of search algorithm. Conversely, platforms like LinkedIn design public profiles specifically for search indexability, producing far higher recall for ordinary individuals.
+2. **Public Web Indexing Coverage**: Reverse-image search results depend on public web search engine coverage (Google Lens / Yandex / Bing). Unindexed or private photos cannot be discovered via visual search APIs.
+3. **Biometric Variations & Extreme Occlusion**: Deep feature representations are sensitive to heavy facial occlusion (sunglasses, masks, extreme profiles $> 60^\circ$ yaw/pitch) and severe motion blur (Laplacian variance $< 30$).
+4. **Multi-Person Ambiguity**: When an image contains multiple subjects, the pipeline requires explicit `--face-index` selection to eliminate accidental identity cross-matching.
+5. **Third-Party API Rate Limits**: Visual search engines (SerpAPI / Bing) impose rate limits based on subscription tiers.
+6. **Blockchain Gas & RPC Latency**: Public Ethereum Sepolia transactions require funded test-ETH and 12–15 second block confirmation times. Simulated mode is provided for instantaneous, zero-cost deterministic grading.
+
 - `tests/test_quality.py`: Sharpness, contrast, brightness, and resolution metrics.
 - `tests/test_search.py`: Candidate normalization, URL deduplication, multi-provider interfaces.
 - `tests/test_blockchain.py`: Smart contract ABI, RFC 8785 canonical serialization, SHA-256 hashing, EVM simulation, tamper avalanche proof.

@@ -104,3 +104,44 @@ def test_multi_face_warning():
         candidate_faces_count=3,
     )
     assert any("matched face #2" in w.lower() for w in dec.warnings)
+
+
+def test_near_duplicate_runner_up_high_confidence():
+    """
+    Test case (a): True match (0.9563) with a near-duplicate runner-up (0.9548)
+    where non-cluster runner-up is 0.4693. Should classify as HIGH CONFIDENCE MATCH.
+    """
+    pool_scores = [0.9563, 0.9548, 0.4693, 0.450, 0.440, 0.430, 0.420, 0.410, 0.400, 0.390]
+    dec = evaluate_identity_decision(
+        best_similarity=0.9563,
+        runner_up_similarity=0.4693,  # Non-cluster runner-up score
+        quality=_mock_quality(acceptable=True, score=0.95),
+        candidate_pool_scores=pool_scores,
+    )
+    assert dec.tier == "HIGH_MATCH"
+    assert dec.verdict == "HIGH CONFIDENCE MATCH"
+    assert dec.is_match is True
+    assert dec.margin > 0.45
+    assert dec.is_statistical_outlier is True
+    assert dec.z_score >= 2.0
+
+
+def test_unrelated_domain_moderate_similarity_no_statistical_separation():
+    """
+    Test case (b): Moderate similarity candidate (0.4693) from unrelated domain
+    lacking statistical separation from the background candidate pool (Z-score < 2.0).
+    Should classify as REVIEW / UNCERTAIN, not HIGH MATCH.
+    """
+    pool_scores = [0.4693, 0.4650, 0.4610, 0.4590, 0.4550, 0.4500, 0.4480, 0.4420]
+    dec = evaluate_identity_decision(
+        best_similarity=0.4693,
+        runner_up_similarity=0.4650,
+        quality=_mock_quality(acceptable=True),
+        candidate_pool_scores=pool_scores,
+    )
+    assert dec.tier == "REVIEW"
+    assert dec.verdict == "REVIEW / UNCERTAIN"
+    assert dec.is_match is False
+    assert dec.is_statistical_outlier is False
+    assert dec.z_score < 2.0
+    assert any("statistical" in w.lower() or "separation" in w.lower() for w in dec.warnings)

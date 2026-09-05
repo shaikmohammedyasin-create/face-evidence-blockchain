@@ -157,6 +157,7 @@ def match_candidate(
     best_similarity = -1.0
     best_face_idx = 0
     best_quality: Optional[FaceQualityAssessment] = None
+    best_cand_embedding: list[float] = []
     all_scores: list[float] = []
 
     for idx, face_meta in enumerate(cand_faces):
@@ -164,15 +165,18 @@ def match_candidate(
         try:
             cand_face = generate_embedding(candidate_image_path, face_index=idx)
             sim = cosine_similarity(input_face.embedding, cand_face.embedding)
+            cand_emb = cand_face.embedding
         except Exception as exc:
             log.debug("Could not encode candidate face %d in %s: %s", idx, path_str, exc)
             sim = 0.0
+            cand_emb = []
 
         all_scores.append(round(sim, 4))
         if sim > best_similarity:
             best_similarity = sim
             best_face_idx = idx
             best_quality = quality
+            best_cand_embedding = cand_emb
 
     similarity = max(0.0, best_similarity)
     selected_meta = cand_faces[best_face_idx]
@@ -196,6 +200,7 @@ def match_candidate(
         confidence=similarity,
         local_image_path=path_str,
         candidate_embedding_dimension=len(input_face.embedding),
+        candidate_embedding=best_cand_embedding,
         matched_face_index=best_face_idx,
         candidate_faces_count=len(cand_faces),
         matched_face_box=fa,
@@ -210,38 +215,69 @@ def match_candidate(
     )
 
 
+def is_near_duplicate(r1: MatchResult, r2: MatchResult, threshold: float = 0.90) -> bool:
+    """
+    Return True if candidates r1 and r2 represent near-duplicate face images / same identity cluster.
+    """
+    if r1.candidate_embedding and r2.candidate_embedding:
+        return cosine_similarity(r1.candidate_embedding, r2.candidate_embedding) >= threshold
+    return abs(r1.confidence - r2.confidence) < 0.005
+
+
 def rank_candidates(results: list[MatchResult]) -> list[MatchResult]:
     """
-    Sort match results descending by cosine similarity confidence score and
-    compute runner-up margins and 3-tier forensic decisions for the full set.
+    Sort match results descending by cosine similarity confidence score,
+    perform near-duplicate candidate clustering, compute non-cluster runner-up margins,
+    and apply 3-tier forensic identity decisions with pool z-score evaluation.
     """
     if not results:
         return []
 
     sorted_results = sorted(results, key=lambda r: r.confidence, reverse=True)
+    pool_scores = [r.confidence for r in sorted_results]
 
-    # Calculate runner-up margin and attach identity decisions
+    # Cluster candidates by embedding similarity (near-duplicate grouping)
+    clusters: list[list[MatchResult]] = []
+    for res in sorted_results:
+        assigned = False
+        for cluster in clusters:
+            if is_near_duplicate(cluster[0], res, threshold=0.90):
+                cluster.append(res)
+                assigned = True
+                break
+        if not assigned:
+            clusters.append([res])
+
+    # Map candidate instance to its assigned cluster
+    candidate_to_cluster: dict[int, list[MatchResult]] = {}
+    for cluster in clusters:
+        for item in cluster:
+            candidate_to_cluster[id(item)] = cluster
+
+    # Clustered pool scores (highest score per distinct candidate cluster)
+    clustered_pool_scores = [c[0].confidence for c in clusters]
+
+    # Calculate runner-up margin against candidates NOT in the top candidate's cluster
     for rank_idx, match_res in enumerate(sorted_results):
-        # Find the next best candidate from a different domain or URL to calculate true source margin
-        runner_up_sim = 0.0
-        runner_up_domain = ""
+        my_cluster = candidate_to_cluster.get(id(match_res), [match_res])
         current_domain = urlparse(match_res.candidate.url).netloc.lower()
 
-        for other_idx in range(len(sorted_results)):
-            if other_idx == rank_idx:
+        # Find highest-scoring candidate belonging to a DIFFERENT cluster
+        runner_up_sim = 0.0
+        runner_up_domain = ""
+
+        for other in sorted_results:
+            if other is match_res or other in my_cluster:
                 continue
-            other = sorted_results[other_idx]
-            other_domain = urlparse(other.candidate.url).netloc.lower()
-            # If domain differs or is distinct candidate
             if other.confidence > 0.0:
                 runner_up_sim = other.confidence
-                runner_up_domain = other_domain
+                runner_up_domain = urlparse(other.candidate.url).netloc.lower()
                 break
 
         margin = max(0.0, match_res.confidence - runner_up_sim) if runner_up_sim > 0 else match_res.confidence
         match_res.margin_from_runner_up = margin
 
-        # Re-evaluate identity decision with margin context
+        # Re-evaluate identity decision with margin and statistical pool context
         quality_obj = None
         if match_res.quality_details:
             quality_obj = FaceQualityAssessment(
@@ -266,6 +302,7 @@ def rank_candidates(results: list[MatchResult]) -> list[MatchResult]:
             candidate_faces_count=match_res.candidate_faces_count,
             candidate_domain=current_domain,
             runner_up_domain=runner_up_domain,
+            candidate_pool_scores=clustered_pool_scores,
         )
 
         match_res.identity_decision = decision

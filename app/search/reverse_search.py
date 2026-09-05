@@ -14,15 +14,17 @@ from app.models.schemas import SearchCandidate
 from app.search.web_search import (
     BingVisualSearchProvider,
     SerpApiLensProvider,
+    SerpApiYandexProvider,
     VisualSearchProvider,
     build_search_provider,
 )
+from app.face.matcher import deduplicate_candidates
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-# Maximum candidates forwarded to the matcher
-MAX_CANDIDATES = 20
+# Maximum candidates forwarded to downstream face matcher
+MAX_CANDIDATES = 30
 
 
 def search_for_image(
@@ -30,54 +32,72 @@ def search_for_image(
     preferred_provider: Optional[str] = None,
 ) -> list[SearchCandidate]:
     """
-    Run a genuine reverse-image search and return up to *MAX_CANDIDATES*
-    :class:`SearchCandidate` objects.
+    Run multi-provider visual reverse-image search (SerpAPI Google Lens,
+    SerpAPI Yandex Images, Bing Visual Search), merging and deduplicating
+    candidates to maximize recall on non-celebrity faces.
 
-    Includes transparent provider fallback if both SerpAPI and Bing keys are available.
-
-    Raises:
-        EnvironmentError  – no search provider is configured.
-        RuntimeError      – the API search call failed.
+    Returns up to *MAX_CANDIDATES* deduplicated :class:`SearchCandidate` objects.
     """
     image_path = Path(image_path)
+    all_candidates: list[SearchCandidate] = []
 
-    try:
-        provider: VisualSearchProvider = build_search_provider(preferred_provider)
-    except EnvironmentError as exc:
-        log.error("No search provider available: %s", exc)
-        raise
-
-    candidates: list[SearchCandidate] = []
-
-    try:
-        candidates = provider.search(image_path)
-    except Exception as exc:
-        log.warning("Primary provider '%s' failed: %s", getattr(provider, "provider_name", "Unknown"), exc)
-        # Attempt fallback if alternative key is configured
-        fallback_provider = None
-        if isinstance(provider, SerpApiLensProvider) and BING_SEARCH_API_KEY:
-            log.info("Attempting automatic fallback to Bing Visual Search...")
+    # If explicit single provider specified, use build_search_provider
+    if preferred_provider:
+        provider = build_search_provider(preferred_provider)
+        all_candidates = provider.search(image_path)
+    else:
+        # Multi-provider aggregation
+        providers: list[VisualSearchProvider] = []
+        if SERPAPI_KEY:
             try:
-                fallback_provider = BingVisualSearchProvider()
-                candidates = fallback_provider.search(image_path)
-            except Exception as fb_exc:
-                log.error("Fallback provider also failed: %s", fb_exc)
-                raise RuntimeError(f"All configured search providers failed. Primary: {exc}; Fallback: {fb_exc}") from exc
-        else:
-            raise
+                providers.append(SerpApiLensProvider())
+            except Exception as exc:
+                log.warning("Could not initialize Google Lens provider: %s", exc)
+            try:
+                providers.append(SerpApiYandexProvider())
+            except Exception as exc:
+                log.warning("Could not initialize Yandex Images provider: %s", exc)
 
-    if not candidates:
-        log.warning("No visual match candidates returned by search provider.")
+        if BING_SEARCH_API_KEY:
+            try:
+                providers.append(BingVisualSearchProvider())
+            except Exception as exc:
+                log.warning("Could not initialize Bing Visual Search provider: %s", exc)
+
+        if not providers:
+            raise EnvironmentError(
+                "No search API key is configured in .env.\n"
+                "Set SERPAPI_KEY or BING_SEARCH_API_KEY to execute live visual search."
+            )
+
+        errors: list[str] = []
+        for p in providers:
+            try:
+                cands = p.search(image_path)
+                log.info("Provider '%s' returned %d candidate(s)", p.provider_name, len(cands))
+                all_candidates.extend(cands)
+            except Exception as exc:
+                log.warning("Provider '%s' execution failed: %s", p.provider_name, exc)
+                errors.append(f"{p.provider_name}: {exc}")
+
+        if not all_candidates and errors:
+            raise RuntimeError(f"All active visual search providers failed: {'; '.join(errors)}")
+
+    if not all_candidates:
+        log.warning("No visual match candidates returned by search providers.")
         return []
 
+    # Deduplicate candidates across providers by URL and image URL
+    deduped = deduplicate_candidates(all_candidates)
+
     # Prefer candidates with image_url (allows face comparison)
-    with_image = [c for c in candidates if c.image_url]
-    without_image = [c for c in candidates if not c.image_url]
+    with_image = [c for c in deduped if c.image_url]
+    without_image = [c for c in deduped if not c.image_url]
     ordered = with_image + without_image
 
     trimmed = ordered[:MAX_CANDIDATES]
     log.info(
-        "Returning %d/%d candidate(s) (%d have direct thumbnails)",
-        len(trimmed), len(candidates), len(with_image),
+        "Multi-provider search complete: aggregated %d candidate(s) → %d unique (%d with direct thumbnails)",
+        len(all_candidates), len(trimmed), len(with_image),
     )
     return trimmed

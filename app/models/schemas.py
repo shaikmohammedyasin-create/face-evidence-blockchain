@@ -47,7 +47,7 @@ class IdentityDecision:
     tier: str                     # "HIGH_MATCH" | "REVIEW" | "NO_MATCH"
     is_match: bool                # True ONLY for HIGH CONFIDENCE MATCH
     confidence: float             # Primary cosine similarity score
-    margin: float                 # Delta over runner-up from different source
+    margin: float                 # Delta over runner-up from distinct cluster
     runner_up_confidence: float   # Similarity of runner-up candidate
     matched_face_index: int       # 0-indexed face chosen in candidate image
     candidate_faces_count: int    # Total faces detected in candidate image
@@ -57,6 +57,10 @@ class IdentityDecision:
     decision_reason: str = ""     # Human-readable forensic rationale
     warnings: list[str] = field(default_factory=list)
     match_factors: dict[str, Any] = field(default_factory=dict)
+    z_score: float = 0.0          # Per-query statistical z-score above candidate pool mean
+    pool_mean: float = 0.0        # Mean similarity score of search candidate pool
+    pool_std: float = 0.0         # Standard deviation of candidate pool scores
+    is_statistical_outlier: bool = True  # True if score exceeds pool mean + k*std
 
 
 @dataclass
@@ -67,6 +71,7 @@ class MatchResult:
     confidence: float          # cosine similarity 0–1
     local_image_path: str = ""
     candidate_embedding_dimension: int = 128
+    candidate_embedding: list[float] = field(default_factory=list, repr=False)
     matched_face_index: int = 0
     candidate_faces_count: int = 1
     matched_face_box: dict[str, int] = field(default_factory=dict)
